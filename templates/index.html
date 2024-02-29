@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <div hx-trigger="every 1s" hx-get="/get-dead" hx-swap="innerHTML"></div>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -33,6 +34,7 @@
       hx-get="/get-pipe/{{.ID}}"
       hx-swap="innerHTML"
     ></style>
+
     <div class="seg-image seg_{{.ID}}_top"></div>
     <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
     <img class="pipe {{.ID}}_bottom" src="/local/pipe-top.png" />

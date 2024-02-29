@@ -4,7 +4,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"text/template"
 
 	"github.com/go-chi/chi"
@@ -31,6 +30,35 @@ type Player struct {
 	Jumping bool
 	Started bool
 	Dead    bool
+}
+
+func (s *Player) update() {
+
+	if s.Started {
+		s.Vel += 0.011
+
+		if s.Jumping && !s.Dead {
+			s.Vel -= 0.19
+			s.Jumping = false
+		}
+
+		s.Y += s.Vel * 20
+
+		if s.Y > 1200 {
+			s.Dead = true
+		}
+	}
+
+	//Changes the players displayed rotation
+	if s.Vel > -0.1 && s.Vel < 0.1 {
+		s.Rot = 0
+	}
+	if s.Vel <= -0.1 {
+		s.Rot = -0.1
+	}
+	if s.Vel >= 0.1 {
+		s.Rot = 0.1
+	}
 }
 
 type GameState struct {
@@ -88,11 +116,34 @@ func (s *GameState) genInitialPipes() {
 func (s *GameState) isColliding() bool {
 	for _, pipe := range s.Pipes {
 		if (s.Player.X > float32(pipe.X) && s.Player.X < float32(pipe.X)+64) &&
-			(s.Player.Y < float32(pipe.Y) || s.Player.Y > float32(pipe.BottomY)) {
+			(s.Player.Y < float32(pipe.Y+75) || s.Player.Y > float32(pipe.BottomY)) {
 			return true
 		}
 	}
 	return false
+}
+
+func (s *GameState) update() {
+	if !s.Player.Dead {
+		for key, _ := range s.Pipes {
+			new_pipe := s.Pipes[key]
+			new_pipe.X -= 70
+			if new_pipe.X < -100 {
+				// If it goes past the screen then send it to the back
+				new_pipe.Visible = false
+				furthest_pipe := s.getFurthestPipe()
+				new_pipe.X = furthest_pipe.X + s.pipe_hor_offset
+				// If it's outside the screen then we don't show it
+			} else if new_pipe.X < 1500 && new_pipe.X > 0 {
+				new_pipe.Visible = true
+			}
+			s.Pipes[key] = new_pipe
+		}
+	}
+
+	if s.isColliding() {
+		s.Player.Dead = true
+	}
 }
 
 func newGameState() GameState {
@@ -129,27 +180,14 @@ func main() {
 
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
+	//r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	file_server := http.FileServer(http.Dir("./local/"))
 	r.Handle("/local/*", http.StripPrefix("/local", file_server))
 
 	r.Put("/tick", func(w http.ResponseWriter, r *http.Request) {
-		for key, _ := range game_state.Pipes {
-			new_pipe := game_state.Pipes[key]
-			new_pipe.X -= 70
-			if new_pipe.X < -100 {
-				// If it goes past the screen then send it to the back
-				new_pipe.Visible = false
-				furthest_pipe := game_state.getFurthestPipe()
-				new_pipe.X = furthest_pipe.X + game_state.pipe_hor_offset
-				// If it's outside the screen then we don't show it
-			} else if new_pipe.X < 1500 && new_pipe.X > 0 {
-				new_pipe.Visible = true
-			}
-			game_state.Pipes[key] = new_pipe
-		}
+		game_state.update()
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -163,39 +201,19 @@ func main() {
 		w.WriteHeader(200)
 	})
 
+	r.Get("/get-dead", func(w http.ResponseWriter, r *http.Request) {
+		if game_state.Player.Dead {
+			templates.ExecuteTemplate(w, "dead-screen.html", []byte{})
+		} else {
+			w.WriteHeader(200)
+		}
+	})
+
 	r.Get("/get-player", func(w http.ResponseWriter, r *http.Request) {
 
-		if !game_state.Player.Dead && game_state.Player.Started {
-			game_state.Player.Vel += 0.011
+		game_state.Player.update()
 
-			if game_state.Player.Jumping {
-				game_state.Player.Vel -= 0.19
-			}
-
-			game_state.Player.Y += game_state.Player.Vel * 20
-
-			if game_state.Player.Y > 1200 {
-				game_state.Player.Dead = true
-			}
-
-			//game_state.Player.Vel = 0
-		}
-
-		if game_state.Player.Vel > -0.01 && game_state.Player.Vel < 0.01 {
-			game_state.Player.Rot = 0
-		}
-		if game_state.Player.Vel <= -0.01 {
-			game_state.Player.Rot = -0.1
-		}
-		if game_state.Player.Vel >= 0.01 {
-			game_state.Player.Rot = 0.1
-		}
-
-		if game_state.isColliding() {
-			os.Exit(0)
-		}
 		templates.ExecuteTemplate(w, "player.tmpl", game_state.Player)
-		game_state.Player.Jumping = false
 	})
 
 	r.Get("/get-pipe/{pipe_id}", func(w http.ResponseWriter, r *http.Request) {

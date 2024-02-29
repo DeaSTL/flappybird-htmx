@@ -1,12 +1,14 @@
 package main
 
 import (
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/v5/middleware"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"text/template"
+
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type PipeSet struct {
@@ -53,10 +55,6 @@ func (s *GameState) getFurthestPipe() PipeSet {
 	return furthest
 }
 
-func (s *GameState) genNewPipes() {
-
-}
-
 func genID(length int) string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz-_"
 
@@ -87,18 +85,29 @@ func (s *GameState) genInitialPipes() {
 	}
 }
 
+func (s *GameState) isColliding() bool {
+	for _, pipe := range s.Pipes {
+		if (s.Player.X > float32(pipe.X) && s.Player.X < float32(pipe.X)+64) &&
+			(s.Player.Y < float32(pipe.Y) || s.Player.Y > float32(pipe.BottomY)) {
+			return true
+		}
+	}
+	return false
+}
+
 func newGameState() GameState {
 	game_state := GameState{
 		Player: Player{
 			Y: 300,
+			X: 100,
 		},
 		Pipes:             map[string]PipeSet{},
 		PollRate:          "400ms",
 		pipe_vert_offset:  300,
 		pipe_count:        5,
-		pipe_variation:    100,
+		pipe_variation:    300,
 		pipe_hor_offset:   300,
-		pipe_starting_pos: 2,
+		pipe_starting_pos: 3,
 	}
 	game_state.genInitialPipes()
 
@@ -129,7 +138,7 @@ func main() {
 	r.Put("/tick", func(w http.ResponseWriter, r *http.Request) {
 		for key, _ := range game_state.Pipes {
 			new_pipe := game_state.Pipes[key]
-			new_pipe.X -= 45
+			new_pipe.X -= 70
 			if new_pipe.X < -100 {
 				// If it goes past the screen then send it to the back
 				new_pipe.Visible = false
@@ -157,7 +166,7 @@ func main() {
 	r.Get("/get-player", func(w http.ResponseWriter, r *http.Request) {
 
 		if !game_state.Player.Dead && game_state.Player.Started {
-			game_state.Player.Vel += 0.009
+			game_state.Player.Vel += 0.011
 
 			if game_state.Player.Jumping {
 				game_state.Player.Vel -= 0.19
@@ -165,7 +174,7 @@ func main() {
 
 			game_state.Player.Y += game_state.Player.Vel * 20
 
-			if game_state.Player.Y > 700 {
+			if game_state.Player.Y > 1200 {
 				game_state.Player.Dead = true
 			}
 
@@ -180,6 +189,10 @@ func main() {
 		}
 		if game_state.Player.Vel >= 0.01 {
 			game_state.Player.Rot = 0.1
+		}
+
+		if game_state.isColliding() {
+			os.Exit(0)
 		}
 		templates.ExecuteTemplate(w, "player.tmpl", game_state.Player)
 		game_state.Player.Jumping = false

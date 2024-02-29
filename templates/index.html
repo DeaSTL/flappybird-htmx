@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <img src="/local/pipe.png" style="visibility: hidden" />
+    <title></title>
+    <style>
+      .pipe {
+        position: absolute;
+        width: calc(255px * 0.25);
+        height: calc(135px * 0.25);
+        transition: all 400ms linear;
+      }
+      .flipped {
+        transform: scaleY(-1);
+      }
+      .seg-image {
+        position: absolute;
+        background-image: url("/local/pipe-seg.png");
+        background-repeat: repeat-y;
+        transition: all 400ms linear;
+      }
+    </style>
+  </head>
+  <body>
+    <div hx-trigger="every {{.PollRate}}" hx-put="/tick"></div>
+    {{ range .Pipes }}
+
+    <style
+      hx-trigger="every {{$.PollRate}}"
+      hx-get="/get-pipe/{{.ID}}"
+      hx-swap="innerHTML"
+    ></style>
+    <div class="seg-image seg_{{.ID}}_top"></div>
+    <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
+    <img class="pipe {{.ID}}_bottom" src="/local/pipe-top.png" />
+    <div class="seg-image seg_{{.ID}}_bottom"></div>
+
+    {{end}}
+    <style
+      hx-trigger="every 20ms"
+      hx-get="/get-player"
+      hx-swap="innerHTML"
+    ></style>
+
+    <img
+      hx-trigger="keyup[key=='j'] from:body"
+      hx-put="/jump-player"
+      class="player"
+      src="/local/bird.png"
+    />
+  </body>
+</html>

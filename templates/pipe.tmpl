@@ -1,0 +1,42 @@
+.{{.ID}}_top { 
+  left:{{.X}}px; 
+  top:{{.Y}}px; 
+  transform: scaleY(-1); 
+
+  {{if not .Visible}}
+    display: none;
+  {{end}}
+}
+
+.{{.ID}}_bottom { 
+  left:{{.X}}px;
+  top:{{.BottomY}}px;
+
+  {{ if not .Visible}}
+    display: none;
+  {{end}}
+}
+
+.seg_{{.ID}}_bottom { 
+  left:calc({{.X}}px - 95px); 
+  top:calc({{.BottomY}}px + 33px); 
+  transform: scaleX(0.25) scaleY(-1);
+  height: 5000px;
+  width: 255px;
+
+  {{if not .Visible}}
+    display: none;
+  {{end}}
+}
+
+.seg_{{.ID}}_top { 
+  left: calc({{.X}}px - 95px); 
+  top:calc({{.Y}}px - 5000px); 
+  height: 5000px;
+  width: 255px;
+  transform: scaleX(0.25) scaleY(-1);
+
+  {{if not .Visible}}
+    display: none;
+  {{end}}
+}

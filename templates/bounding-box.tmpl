@@ -1,0 +1,16 @@
+.bbox-top-{{.ID}} {
+  border: 4px solid red;
+  position:absolute;
+  left: {{.TopCollider.X}}px;
+  top: {{.TopCollider.Y}}px;
+  width: {{.TopCollider.Width}}px;
+  height: {{.TopCollider.Height}}px;
+}
+.bbox-bottom-{{.ID}} {
+  border: 4px solid red;
+  position:fixed;
+  left: {{.BottomCollider.X}}px;
+  top: {{.BottomCollider.Y}}px;
+  width: {{.BottomCollider.Width}}px;
+  height: {{.BottomCollider.Height}}px;
+}

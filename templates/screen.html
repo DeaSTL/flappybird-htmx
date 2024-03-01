@@ -1,0 +1,12 @@
+{{ range .Pipes }}
+
+<style>
+  {{ template "pipe.tmpl" .}}
+  {{ template "bounding-box.tmpl" .}}
+</style>
+
+{{end}}
+
+<style>
+  {{ template "player.tmpl" .Player }}
+</style>

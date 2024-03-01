@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"crypto/rand"
+	"embed"
+	"encoding/base64"
 	"errors"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"sync"
@@ -13,6 +16,9 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+//go:embed templates/*
+var static embed.FS
 
 type BoundingBox struct {
 	X      float32
@@ -33,73 +39,53 @@ func (b *BoundingBox) isColliding(other *BoundingBox) bool {
 }
 
 type PipeSet struct {
+	ID             string
 	X              int
 	BottomY        int
 	Y              int
-	ID             string
-	Visible        bool
 	TopPieceHeight int
 	Width          int
 	Height         int
 	TopCollider    BoundingBox
 	BottomCollider BoundingBox
 	mut            sync.Mutex
+	Visible        bool
 }
 
 func genID(length int) string {
-	const alphabet = "abcdefghijklmnopqrstuvwxyz-_"
-
-	id := make([]byte, length)
-
-	for i := range id {
-		id[i] = alphabet[rand.Intn(len(alphabet))]
-	}
-	return string(id)
+	idBytes := make([]byte, length)
+	rand.Read(idBytes)
+	buf := bytes.NewBuffer([]byte{})
+	base64.NewEncoder(base64.RawURLEncoding.Strict(), buf)
+	return string(buf.String())
 }
 
 type ServerState struct {
-	Templates  template.Template
 	GameStates sync.Map
 	mut        sync.Mutex
 }
 
-func (s *ServerState) loadTemplates() {
-	s.mut.Lock()
-	unsafe_templates, err := template.ParseGlob("./templates/*")
-
-	if err != nil {
-		log.Printf("Could not load templates: %v", err)
-		os.Exit(-1)
-	}
-
-	s.Templates = *unsafe_templates
-
-	s.mut.Unlock()
-
-}
-
-func (s *ServerState) getSessionGameState(r *http.Request) (GameState, error) {
+func (s *ServerState) getSessionGameState(r *http.Request) (*GameState, error) {
 
 	session, err := r.Cookie("session")
 
 	session_id := session.Value
 
 	if err != nil {
-		return GameState{}, err
+		return &GameState{}, err
 	}
 
 	sync_state, ok := s.GameStates.Load(session_id)
-
 	if !ok {
-		return GameState{}, errors.New("Coud not load sync state from syncmap")
+		return &GameState{}, errors.New("coud not load sync state from syncmap")
 	}
 
-	game_state := sync_state.(GameState)
+	game_state := sync_state.(*GameState)
 
 	return game_state, nil
 }
 
-func (s *ServerState) setSessionGameState(r *http.Request, game_state GameState) error {
+func (s *ServerState) setSessionGameState(r *http.Request, game_state *GameState) error {
 
 	session_id, err := r.Cookie("session")
 
@@ -112,20 +98,41 @@ func (s *ServerState) setSessionGameState(r *http.Request, game_state GameState)
 	return nil
 }
 
+var boundingBoxTempl *template.Template
+var deadScrentTempl *template.Template
+var indexTempl *template.Template
+var pipeTempl *template.Template
+var playerTempl *template.Template
+var screenTempl *template.Template
+var statsTempl *template.Template
+
+func init() {
+
+	x := map[string]*template.Template{
+		"bounding-box": boundingBoxTempl,
+		"dead-screen":  deadScrentTempl,
+		"index":        indexTempl,
+		"pipe":         pipeTempl,
+		"player":       playerTempl,
+		"screen":       screenTempl,
+		"stats":        statsTempl,
+	}
+	for f, t := range x {
+		fileContents, err := static.ReadFile(f + ".html")
+		if err != nil {
+			panic(err.Error())
+		}
+		_, err = t.Parse(string(fileContents))
+		if err != nil {
+			panic(err.Error())
+		}
+
+	}
+}
+
 func main() {
 
 	server_state := ServerState{}
-
-	new_templates, err := server_state.Templates.ParseGlob("./templates/*")
-
-	if err != nil {
-
-	}
-	server_state.mut.Lock()
-	server_state.Templates = *new_templates
-	server_state.mut.Unlock()
-
-	//var game_state GameState
 
 	log.Println("Starting flappybird server")
 
@@ -137,7 +144,7 @@ func main() {
 	file_server := http.FileServer(http.Dir("./local/"))
 	r.Handle("/local/*", http.StripPrefix("/local", file_server))
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 
 		cookie := http.Cookie{
 			Name:  "session",
@@ -151,11 +158,8 @@ func main() {
 		new_game_state := newGameState()
 
 		server_state.GameStates.Store(cookie.Value, new_game_state)
-		new_game_state.mut.Lock()
 
-		err := server_state.Templates.ExecuteTemplate(w, "index.html", new_game_state)
-		new_game_state.mut.Unlock()
-
+		err := indexTempl.Execute(w, new_game_state)
 		if err != nil {
 			log.Printf("Could not render index template: %+v", err)
 		}
@@ -165,7 +169,7 @@ func main() {
 			for {
 				sync_out, ok := server_state.GameStates.Load(session_id)
 
-				game_state := sync_out.(GameState)
+				game_state := sync_out.(*GameState)
 
 				if !ok {
 					log.Print("Could not load game state in game loop")
@@ -189,9 +193,7 @@ func main() {
 			log.Printf("Error in get-screen: %v", err)
 		}
 
-		server_state.mut.Lock()
-		err = server_state.Templates.ExecuteTemplate(w, "screen.html", game_state)
-		server_state.mut.Unlock()
+		screenTempl.Execute(w, game_state)
 
 		if err != nil {
 			log.Printf("Could not render index template: %+v", err)
@@ -222,13 +224,12 @@ func main() {
 		}
 
 		if game_state.Player.Dead {
-			game_state.mut.Lock()
-			err := server_state.Templates.ExecuteTemplate(w, "dead-screen.html", []byte{})
-			server_state.mut.Unlock()
+			err := deadScrentTempl.Execute(w, []byte{})
 
 			if err != nil {
 				log.Printf("Could not render index template: %+v", err)
-				server_state.loadTemplates()
+				http.Error(w, "", http.StatusInternalServerError)
+				return
 			}
 		} else {
 			w.WriteHeader(200)

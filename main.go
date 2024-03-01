@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
-	"crypto/rand"
 	"embed"
-	"encoding/base64"
 	"errors"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"sync"
@@ -53,11 +51,14 @@ type PipeSet struct {
 }
 
 func genID(length int) string {
-	idBytes := make([]byte, length)
-	rand.Read(idBytes)
-	buf := bytes.NewBuffer([]byte{})
-	base64.NewEncoder(base64.RawURLEncoding.Strict(), buf)
-	return string(buf.String())
+	const alphabet = "abcdefghijklmnopqrstuvwxyz-_"
+
+	id := make([]byte, length)
+
+	for i := range id {
+		id[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+	return string(id)
 }
 
 type ServerState struct {
@@ -66,7 +67,8 @@ type ServerState struct {
 }
 
 func (s *ServerState) getSessionGameState(r *http.Request) (*GameState, error) {
-
+	s.mut.Lock()
+	defer s.mut.Unlock()
 	session, err := r.Cookie("session")
 
 	session_id := session.Value
@@ -98,31 +100,25 @@ func (s *ServerState) setSessionGameState(r *http.Request, game_state *GameState
 	return nil
 }
 
-var boundingBoxTempl *template.Template
-var deadScrentTempl *template.Template
-var indexTempl *template.Template
-var pipeTempl *template.Template
-var playerTempl *template.Template
-var screenTempl *template.Template
-var statsTempl *template.Template
+var megaTempl = template.New("")
 
 func init() {
 
-	x := map[string]*template.Template{
-		"bounding-box": boundingBoxTempl,
-		"dead-screen":  deadScrentTempl,
-		"index":        indexTempl,
-		"pipe":         pipeTempl,
-		"player":       playerTempl,
-		"screen":       screenTempl,
-		"stats":        statsTempl,
+	x := []string{
+		"templates/bounding-box.tmpl.css",
+		"templates/dead-screen.tmpl.html",
+		"templates/index.tmpl.html",
+		"templates/pipe.tmpl.css",
+		"templates/player.tmpl.css",
+		"templates/screen.tmpl.css",
+		"templates/stats.tmpl.html",
 	}
-	for f, t := range x {
-		fileContents, err := static.ReadFile(f + ".html")
+	for _, f := range x {
+		fileContents, err := static.ReadFile(f)
 		if err != nil {
 			panic(err.Error())
 		}
-		_, err = t.Parse(string(fileContents))
+		_, err = megaTempl.New(f).Parse(string(fileContents))
 		if err != nil {
 			panic(err.Error())
 		}
@@ -159,7 +155,7 @@ func main() {
 
 		server_state.GameStates.Store(cookie.Value, new_game_state)
 
-		err := indexTempl.Execute(w, new_game_state)
+		err := megaTempl.ExecuteTemplate(w, "templates/index.tmpl.html", new_game_state)
 		if err != nil {
 			log.Printf("Could not render index template: %+v", err)
 		}
@@ -175,12 +171,11 @@ func main() {
 					log.Print("Could not load game state in game loop")
 					os.Exit(-1)
 				}
-
 				game_state.Player.update()
 				game_state.update()
-				time.Sleep(time.Duration(delay))
-
 				server_state.GameStates.Store(session_id, game_state)
+
+				time.Sleep(time.Duration(delay))
 			}
 		}(cookie.Value)
 
@@ -193,7 +188,9 @@ func main() {
 			log.Printf("Error in get-screen: %v", err)
 		}
 
-		screenTempl.Execute(w, game_state)
+		game_state.mut.Lock()
+		err = megaTempl.ExecuteTemplate(w, "templates/screen.tmpl.css", game_state)
+		game_state.mut.Unlock()
 
 		if err != nil {
 			log.Printf("Could not render index template: %+v", err)
@@ -216,7 +213,6 @@ func main() {
 	})
 
 	r.Get("/get-dead", func(w http.ResponseWriter, r *http.Request) {
-
 		game_state, err := server_state.getSessionGameState(r)
 
 		if err != nil {
@@ -224,7 +220,7 @@ func main() {
 		}
 
 		if game_state.Player.Dead {
-			err := deadScrentTempl.Execute(w, []byte{})
+			err := megaTempl.ExecuteTemplate(w, "templates/dead-screen.tmpl.html", []byte{})
 
 			if err != nil {
 				log.Printf("Could not render index template: %+v", err)
@@ -236,6 +232,6 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe(":3200", r)
+	http.ListenAndServe("0.0.0.0:3200", r)
 
 }

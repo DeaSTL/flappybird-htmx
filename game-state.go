@@ -8,7 +8,7 @@ import (
 
 type GameState struct {
 	Player            Player
-	Pipes             map[string]PipeSet
+	Pipes             map[string]*PipeSet
 	PollRate          string
 	pipe_hor_offset   int
 	pipe_vert_offset  int
@@ -18,8 +18,8 @@ type GameState struct {
 	mut               sync.Mutex
 }
 
-func (s *GameState) getFurthestPipe() PipeSet {
-	var furthest PipeSet
+func (s *GameState) getFurthestPipe() *PipeSet {
+	furthest := &PipeSet{}
 	for _, pipe := range s.Pipes {
 		if pipe.X > furthest.X {
 			furthest = pipe
@@ -61,7 +61,7 @@ func (s *GameState) genInitialPipes() {
 		log.Printf("pipe ID: %s Top Collider: %+v", new_pipe.ID, new_pipe.TopCollider)
 		log.Printf("pipe ID: %s Bottom Collider: %+v", new_pipe.ID, new_pipe.BottomCollider)
 
-		s.Pipes[new_pipe.ID] = new_pipe
+		s.Pipes[new_pipe.ID] = &new_pipe
 	}
 }
 
@@ -76,10 +76,12 @@ func (s *GameState) isColliding() bool {
 }
 
 func (s *GameState) update() {
+	s.mut.Lock()
+	defer s.mut.Unlock()
 	if !s.Player.Dead {
-		for key, _ := range s.Pipes {
+		for key := range s.Pipes {
 			new_pipe := s.Pipes[key]
-			new_pipe.X -= 5
+			new_pipe.X -= 20
 			if new_pipe.X < -100 {
 				// If it goes past the screen then send it to the back
 				new_pipe.Visible = false
@@ -95,9 +97,7 @@ func (s *GameState) update() {
 			new_pipe.BottomCollider.X = float32(new_pipe.X)
 			new_pipe.BottomCollider.Y = float32(new_pipe.BottomY)
 
-			s.mut.Lock()
 			s.Pipes[key] = new_pipe
-			s.mut.Unlock()
 
 		}
 	}
@@ -115,7 +115,7 @@ func newGameState() *GameState {
 			Width:  50,
 			Height: 32,
 		},
-		Pipes:             map[string]PipeSet{},
+		Pipes:             map[string]*PipeSet{},
 		PollRate:          "30ms",
 		pipe_vert_offset:  300,
 		pipe_count:        8,

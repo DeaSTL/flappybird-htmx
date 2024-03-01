@@ -17,11 +17,13 @@ type Player struct {
 }
 
 func (s *Player) update() {
+	s.mut.Lock()
+	defer s.mut.Unlock()
 	if s.Started {
-		s.Vel += 0.011
+		s.Vel += 0.019
 
 		if s.Jumping && !s.Dead {
-			s.Vel -= 0.19
+			s.Vel = -0.19
 			s.Jumping = false
 		}
 

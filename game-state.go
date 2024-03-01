@@ -107,7 +107,7 @@ func (s *GameState) update() {
 	}
 }
 
-func newGameState() GameState {
+func newGameState() *GameState {
 	game_state := GameState{
 		Player: Player{
 			Y:      300,
@@ -131,5 +131,5 @@ func newGameState() GameState {
 	}
 	game_state.genInitialPipes()
 
-	return game_state
+	return &game_state
 }

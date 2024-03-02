@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"log"
+	"sync"
+)
 
 type Player struct {
 	X        float32
@@ -14,6 +17,15 @@ type Player struct {
 	Dead     bool
 	Collider BoundingBox
 	mut      sync.Mutex
+}
+
+func NewPlayer(player *Player) {
+	player.Collider.OnEnter = func(object_name string) {
+		log.Println("OnEnter")
+	}
+	player.Collider.OnLeave = func(object_name string) {
+		log.Println("OnLeave")
+	}
 }
 
 func (s *Player) update() {

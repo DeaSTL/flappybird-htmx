@@ -1,12 +1,14 @@
 package main
 
 import (
+	"compress/flate"
 	"embed"
 	"errors"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -19,10 +21,14 @@ import (
 var static embed.FS
 
 type BoundingBox struct {
-	X      float32
-	Y      float32
-	Width  float32
-	Height float32
+	X         float32
+	Y         float32
+	Width     float32
+	Height    float32
+	Name      string
+	Colliding bool
+	OnEnter   func(object_name string)
+	OnLeave   func(object_name string)
 }
 
 // AABB Collision
@@ -31,7 +37,19 @@ func (b *BoundingBox) isColliding(other *BoundingBox) bool {
 		b.X+b.Width > other.X &&
 		b.Y < other.Y+other.Height &&
 		b.Y+b.Height > other.Y {
+		if !b.Colliding {
+			if b.OnEnter != nil {
+				b.OnEnter(b.Name)
+			}
+		}
+		b.Colliding = true
 		return true
+	}
+	if b.Colliding {
+		if b.OnLeave != nil {
+			b.OnLeave(b.Name)
+		}
+		b.Colliding = false
 	}
 	return false
 }
@@ -46,6 +64,7 @@ type PipeSet struct {
 	Height         int
 	TopCollider    BoundingBox
 	BottomCollider BoundingBox
+	PointCollider  BoundingBox
 	mut            sync.Mutex
 	Visible        bool
 }
@@ -102,6 +121,17 @@ func (s *ServerState) setSessionGameState(r *http.Request, game_state *GameState
 
 var megaTempl = template.New("")
 
+func minifyTemplate(templ_text string) string {
+
+	minified_text := templ_text
+
+	minified_text = strings.ReplaceAll(minified_text, "\n", "")
+
+	minified_text = strings.ReplaceAll(minified_text, ";  ", ";")
+
+	return minified_text
+}
+
 func init() {
 
 	x := []string{
@@ -118,7 +148,7 @@ func init() {
 		if err != nil {
 			panic(err.Error())
 		}
-		_, err = megaTempl.New(f).Parse(string(fileContents))
+		_, err = megaTempl.New(f).Parse(minifyTemplate(string(fileContents)))
 		if err != nil {
 			panic(err.Error())
 		}
@@ -135,7 +165,10 @@ func main() {
 	r := chi.NewRouter()
 
 	//r.Use(middleware.Logger)
+
+	compressor := middleware.NewCompressor(flate.DefaultCompression)
 	r.Use(middleware.Recoverer)
+	r.Use(compressor.Handler)
 
 	file_server := http.FileServer(http.Dir("./local/"))
 	r.Handle("/local/*", http.StripPrefix("/local", file_server))
@@ -182,6 +215,8 @@ func main() {
 	})
 
 	r.Get("/get-screen", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+
 		game_state, err := server_state.getSessionGameState(r)
 
 		if err != nil {
@@ -210,6 +245,19 @@ func main() {
 		server_state.setSessionGameState(r, game_state)
 
 		w.WriteHeader(200)
+	})
+
+	r.Get("/get-stats", func(w http.ResponseWriter, r *http.Request) {
+
+		game_state, err := server_state.getSessionGameState(r)
+		if err != nil {
+			log.Printf("Error in jump-player: %v", err)
+		}
+
+		game_state.mut.Lock()
+		err = megaTempl.ExecuteTemplate(w, "templates/stats.tmpl.html", game_state)
+		game_state.mut.Unlock()
+
 	})
 
 	r.Get("/get-dead", func(w http.ResponseWriter, r *http.Request) {

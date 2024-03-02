@@ -1,18 +1,20 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- <div hx-trigger="every 200ms" hx-get="/get-dead" hx-swap="innerHTML"></div> -->
+    <div hx-trigger="every 200ms" hx-get="/get-dead" hx-swap="innerHTML"></div>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <img src="/local/pipe.png" style="visibility: hidden" />
     <title></title>
     <style>
+      body {
+        background: gray;
+      }
       .pipe {
         position: fixed;
         width: calc(255px * 0.25);
         height: calc(135px * 0.25);
-        //transition: all 200ms linear;
       }
       .flipped {
         //transform: scaleY(-1);
@@ -21,7 +23,35 @@
         position: fixed;
         background-image: url("/local/pipe-seg.png");
         background-repeat: repeat-y;
-        //transition: all 200ms linear;
+      }
+
+      .control {
+        position: sticky;
+        z-index: 1000;
+        bottom: 0;
+        height: 20vh;
+        background: white;
+      }
+
+      .background {
+        position: sticky;
+        z-index: -1;
+        bottom: 50vh;
+        height: 81vh;
+        background-image: url("/local/background.png");
+        background-size: cover;
+        background-position: top;
+        background-repeat: repeat-x;
+      }
+      .background-ground {
+        position: sticky;
+        z-index: 1;
+        bottom: 16vh;
+        height: 10vh;
+        background-image: url("/local/background-ground.png");
+        background-size: cover;
+        background-position: top;
+        background-repeat: repeat-x;
       }
     </style>
   </head>
@@ -32,24 +62,34 @@
     <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
     <img class="pipe {{.ID}}_bottom" src="/local/pipe-top.png" />
     <div class="seg-image seg_{{.ID}}_bottom"></div>
-    <!--
+    {{ if $.DebugMode }}
     <div class="bbox-bottom-{{.ID}}"></div>
     <div class="bbox-top-{{.ID}}"></div>
-    -->
+    <div class="bbox-point-{{.ID}}"></div>
+    {{end}} {{end}}
+
+    <div class="background background-offset"></div>
+    <div class="background-ground background-ground-offset"></div>
+
     <img
-      hx-trigger="keyup[key=='j'] from:body"
+      hx-trigger="keypress[key=='j'] from:body"
       hx-put="/jump-player"
       class="player"
       src="/local/bird.png"
     />
-
-    {{end}}
-
-    <!-- <div hx-trigger="every {{.PollRate}}" hx-put="/tick"></div>-->
     <span
       hx-trigger="every {{.PollRate}}"
       hx-get="/get-screen"
       hx-swap="innerHTML"
     ></span>
+
+    <div class="control">
+      <div
+        class="stats"
+        hx-get="/get-stats"
+        hx-trigger="every 400ms"
+        hx-swap="innerHTML"
+      ></div>
+    </div>
   </body>
 </html>

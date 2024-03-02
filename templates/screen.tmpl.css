@@ -2,11 +2,20 @@
 
 <style>
   {{ template "templates/pipe.tmpl.css" .}}
-  {{ template "templates/bounding-box.tmpl.css" .}}
+  {{ if $.DebugMode }}
+    {{ template "templates/bounding-box.tmpl.css" .}}
+  {{ end }}
 </style>
 
 {{end}}
 
 <style>
   {{ template "templates/player.tmpl.css" .Player }}
+
+  .background-offset {
+    background-position-x: {{.BackgroundOffset}}px;
+  }
+  .background-ground-offset {
+    background-position-x: {{.BackgroundGroundOffset}}px;
+  }
 </style>

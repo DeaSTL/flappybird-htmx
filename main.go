@@ -268,7 +268,9 @@ func main() {
 		}
 
 		if game_state.Player.Dead {
-			err := megaTempl.ExecuteTemplate(w, "templates/dead-screen.tmpl.html", []byte{})
+			game_state.mut.Lock()
+			err := megaTempl.ExecuteTemplate(w, "templates/dead-screen.tmpl.html", game_state)
+			game_state.mut.Unlock()
 
 			if err != nil {
 				log.Printf("Could not render index template: %+v", err)

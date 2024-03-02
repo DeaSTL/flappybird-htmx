@@ -164,10 +164,9 @@ func logInfo(server_state *ServerState) {
 		game_state := value.(*GameState)
 
 		log.Printf(
-			"ID: %s Score: %v Alive: %t PlayerAlive: %t FPS: %d \n",
+			"ID: %s Score: %v PlayerAlive: %t FPS: %d \n",
 			id,
 			game_state.Points,
-			game_state.ClientAlive,
 			!game_state.Player.Dead,
 			game_state.FPS,
 		)
@@ -235,6 +234,7 @@ func main() {
 				select {
 				case <-game_state.ClientAliveTimer.C:
 					game_state.ClientAlive = false
+					server_state.GameStates.Delete(session_id)
 					return
 				default:
 				}

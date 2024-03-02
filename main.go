@@ -114,7 +114,7 @@ func (s *ServerState) setSessionGameState(r *http.Request, game_state *GameState
 		return err
 	}
 
-	s.GameStates.Store(session_id, game_state)
+	s.GameStates.Store(session_id.Value, game_state)
 
 	return nil
 }
@@ -156,6 +156,25 @@ func init() {
 	}
 }
 
+func logInfo(server_state *ServerState) {
+	log.Println("---------------------------------")
+	log.Println("       Connected Clients         ")
+	server_state.GameStates.Range(func(key any, value any) bool {
+		id := key.(string)
+		game_state := value.(*GameState)
+
+		log.Printf(
+			"ID: %s Score: %v Alive: %t PlayerAlive: %t FPS: %d \n",
+			id,
+			game_state.Points,
+			game_state.ClientAlive,
+			!game_state.Player.Dead,
+			game_state.FPS,
+		)
+		return true
+	})
+}
+
 func main() {
 
 	server_state := ServerState{}
@@ -172,6 +191,15 @@ func main() {
 
 	file_server := http.FileServer(http.Dir("./local/"))
 	r.Handle("/local/*", http.StripPrefix("/local", file_server))
+
+	// Report info to log
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			logInfo(&server_state)
+		}
+	}()
 
 	r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 
@@ -200,6 +228,17 @@ func main() {
 
 				game_state := sync_out.(*GameState)
 
+				if game_state.ClientAliveTimer == nil {
+					game_state.ClientAliveTimer = time.NewTimer(1 * time.Minute)
+				}
+
+				select {
+				case <-game_state.ClientAliveTimer.C:
+					game_state.ClientAlive = false
+					return
+				default:
+				}
+
 				if !ok {
 					log.Print("Could not load game state in game loop")
 					os.Exit(-1)
@@ -218,6 +257,22 @@ func main() {
 		w.Header().Set("Content-Type", "text/html")
 
 		game_state, err := server_state.getSessionGameState(r)
+
+		if game_state.ClientAliveTimer == nil || game_state.FrameTimer == nil {
+			game_state.ClientAliveTimer = time.NewTimer(1 * time.Minute)
+			game_state.FrameTimer = time.NewTimer(30 * time.Second)
+		}
+
+		select {
+		case <-game_state.FrameTimer.C:
+			game_state.FPS = game_state.FrameCount / 30
+			game_state.FrameCount = 0
+			game_state.FrameTimer.Reset(30 * time.Second)
+		default:
+			game_state.FrameCount++
+		}
+
+		game_state.ClientAliveTimer.Reset(1 * time.Minute)
 
 		if err != nil {
 			log.Printf("Error in get-screen: %v", err)

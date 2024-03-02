@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 type GameState struct {
@@ -14,6 +15,11 @@ type GameState struct {
 	Points                 int
 	BackgroundOffset       int
 	BackgroundGroundOffset int
+	ClientAlive            bool
+	ClientAliveTimer       *time.Timer
+	FrameTimer             *time.Timer
+	FPS                    int
+	FrameCount             int
 	pipe_hor_offset        int
 	pipe_vert_offset       int
 	pipe_starting_pos      int
@@ -146,6 +152,7 @@ func newGameState() *GameState {
 			Height: 32,
 		},
 		DebugMode:         false,
+		ClientAlive:       true,
 		Pipes:             map[string]*PipeSet{},
 		PollRate:          "35ms",
 		pipe_vert_offset:  400,

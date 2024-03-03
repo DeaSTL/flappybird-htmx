@@ -156,7 +156,7 @@ func newGameState() *GameState {
 		Pipes:             map[string]*PipeSet{},
 		PollRate:          "35ms",
 		pipe_vert_offset:  400,
-		pipe_count:        4,
+		pipe_count:        8,
 		pipe_variation:    250,
 		pipe_hor_offset:   300,
 		pipe_starting_pos: 300,

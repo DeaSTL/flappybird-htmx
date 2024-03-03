@@ -337,6 +337,10 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe("0.0.0.0:3200", r)
+	err := http.ListenAndServe("0.0.0.0:3200", r)
+
+	if err != nil {
+		log.Printf("Error starting server: %v", err)
+	}
 
 }

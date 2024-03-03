@@ -22,14 +22,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <img src="/local/pipe.png" style="visibility: hidden" />
     <title></title>
     <style>
       body {
-        background: gray;
+        padding: 0px;
+        margin: 0px;
+        font-family: "Brush Script MT", cursive;
       }
       .pipe {
-        position: fixed;
+        position: absolute;
         width: calc(255px * 0.25);
         height: calc(135px * 0.25);
       }
@@ -37,7 +38,7 @@
         //transform: scaleY(-1);
       }
       .seg-image {
-        position: fixed;
+        position: absolute;
         background-image: url("/local/pipe-seg.png");
         background-repeat: repeat-y;
       }
@@ -51,26 +52,24 @@
       }
 
       .background {
-        position: sticky;
+        position: relative;
         z-index: -1;
-        bottom: 75vh;
-        height: 100vh;
+        //bottom: 75vh;
+        height: 90vh;
         width: 200%;
         background-image: url("/local/background.png");
         background-size: contain;
-        background-position: top;
         background-repeat: repeat-x;
         background-position-y: -375px;
       }
       .background-ground {
-        position: sticky;
+        position: relative;
         z-index: 1;
-        bottom: 16vh;
+        bottom: 18vh;
         height: 10vh;
         width: 100%;
         background-image: url("/local/background-ground.png");
         background-size: cover;
-        background-position: top;
         background-repeat: repeat-x;
       }
     </style>

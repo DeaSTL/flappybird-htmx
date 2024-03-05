@@ -20,6 +20,6 @@
 # Go workspace file
 go.work
 
-deployment/terraform.tfstate
-deployment/terraform.tfstate.backup
-deployment/.*
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/.*

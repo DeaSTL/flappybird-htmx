@@ -1,11 +1,22 @@
-package main
+package game
 
 import (
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/deastl/flappybird-htmx/game/physics"
+	"github.com/deastl/flappybird-htmx/utils"
 )
+
+type Event struct {
+	Name    string
+	Data    any
+	Ack     bool
+	Created time.Time
+}
 
 type GameState struct {
 	Player                 Player
@@ -19,14 +30,17 @@ type GameState struct {
 	ClientAliveTimer       *time.Timer
 	FrameTimer             *time.Timer
 	FPS                    int
-	FrameCount             int
+	TargetFPS              int
+	FrameCount             int         // Amount of frames requested in current sampling block
+	TotalFrameCount        int         // Total amount of frames requested since beginning of connection
+	DeadScreenTimer        *time.Timer // Time that is set to trigger the dead screen once it expires
 	pipe_hor_offset        int
 	pipe_vert_offset       int
 	pipe_starting_pos      int
 	pipe_variation         int
 	pipe_count             int
 	in_point_collider      bool
-	mut                    sync.Mutex
+	Mut                    sync.Mutex
 }
 
 func (s *GameState) getFurthestPipe() *PipeSet {
@@ -39,7 +53,7 @@ func (s *GameState) getFurthestPipe() *PipeSet {
 
 	return furthest
 }
-func (s *GameState) genInitialPipes() {
+func (s *GameState) GenInitialPipes() {
 	num_pipes := s.pipe_count
 	for i := 1; i < num_pipes+1; i++ {
 		vert_level := rand.Intn(s.pipe_variation)
@@ -48,7 +62,7 @@ func (s *GameState) genInitialPipes() {
 			Y:              vert_level,
 			BottomY:        vert_level + 300,
 			X:              i * (s.pipe_starting_pos + s.pipe_hor_offset),
-			ID:             genID(12),
+			ID:             utils.GenID(12),
 			Visible:        true,
 			Width:          255,
 			TopPieceHeight: 135,
@@ -76,28 +90,24 @@ func (s *GameState) genInitialPipes() {
 
 		new_pipe.PointCollider.OnLeave = on_point_collected
 
-		log.Printf("pipe ID: %s Top Collider: %+v", new_pipe.ID, new_pipe.TopCollider)
-		log.Printf("pipe ID: %s Bottom Collider: %+v", new_pipe.ID, new_pipe.BottomCollider)
-		log.Printf("pipe ID: %s Point Collider: %+v", new_pipe.ID, new_pipe.PointCollider)
-
 		s.Pipes[new_pipe.ID] = &new_pipe
 	}
 }
 
 func (s *GameState) isColliding() bool {
 	for _, pipe := range s.Pipes {
-		if pipe.BottomCollider.isColliding(&s.Player.Collider) ||
-			pipe.TopCollider.isColliding(&s.Player.Collider) {
+		if pipe.BottomCollider.IsColliding(&s.Player.Collider) ||
+			pipe.TopCollider.IsColliding(&s.Player.Collider) {
 			return true
 		}
-		pipe.PointCollider.isColliding(&s.Player.Collider)
+		pipe.PointCollider.IsColliding(&s.Player.Collider)
 	}
 	return false
 }
 
-func (s *GameState) update() {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+func (s *GameState) Update() {
+	s.Mut.Lock()
+	defer s.Mut.Unlock()
 
 	if !s.Player.Dead && s.Player.Started {
 		s.BackgroundOffset -= 1
@@ -142,34 +152,41 @@ func (s *GameState) update() {
 	}
 }
 
-func newGameState() *GameState {
+func (s *GameState) SetTargetFPS(fps int) {
+	s.TargetFPS = fps
+	s.PollRate = strconv.FormatInt(1000/int64(s.TargetFPS), 10) + "ms"
+}
+
+func NewGameState() *GameState {
 
 	game_state := GameState{
 		Player: Player{
 			Y:      300,
-			X:      100,
+			X:      200,
 			Width:  50,
 			Height: 32,
 		},
 		DebugMode:         false,
 		ClientAlive:       true,
 		Pipes:             map[string]*PipeSet{},
-		PollRate:          "35ms",
+		TargetFPS:         30,
 		pipe_vert_offset:  400,
 		pipe_count:        8,
 		pipe_variation:    250,
 		pipe_hor_offset:   300,
-		pipe_starting_pos: 300,
+		pipe_starting_pos: 500,
 	}
 
+	game_state.SetTargetFPS(game_state.TargetFPS)
+
 	log.Printf("%+v", &game_state.Player)
-	game_state.Player.Collider = BoundingBox{
+	game_state.Player.Collider = physics.BoundingBox{
 		X:      game_state.Player.X,
 		Y:      game_state.Player.Y,
 		Width:  float32(game_state.Player.Width),
 		Height: float32(game_state.Player.Height),
 	}
-	game_state.genInitialPipes()
+	game_state.GenInitialPipes()
 
 	return &game_state
 }

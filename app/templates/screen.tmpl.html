@@ -1,0 +1,36 @@
+<style>
+
+  {{ range .Pipes }}
+
+  {{ template "templates/pipe.tmpl.css" .}}
+  {{ if $.DebugMode }}
+  {{ template "templates/bounding-box.tmpl.css" .}}
+  {{ end }}
+
+  {{end}}
+  {{ template "templates/player.tmpl.css" .Player }}
+
+  .background-offset {
+    background-position-x: {{.BackgroundOffset}}px;
+  }
+  .background-ground-offset {
+    background-position-x: {{.BackgroundGroundOffset}}px;
+  }
+</style>
+
+<div class="card stats">
+  <h2>Score: {{.Points}}</h2>
+  <h2>FPS: {{.FPS}}</h2>
+</div>
+
+{{ if not .Player.Started }}
+<div class="card instructions">
+  <h1>Instructions</h1>
+  <p>Press J to start and to jump</p>
+  <strong>Do not press space</strong>
+</div>
+{{ end }} {{ if .Player.Dead }}
+<div class="card dead-screen">
+  <h1>You lose!</h1>
+</div>
+{{ end}}

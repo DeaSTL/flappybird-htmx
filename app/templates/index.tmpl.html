@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <div hx-trigger="every 200ms" hx-get="/get-dead" hx-swap="innerHTML"></div>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css"
@@ -13,17 +12,20 @@
       title="Star This on Github"
       >Star This on Github</a
     >
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <span>
+      <span hx-trigger="get-dead-screen from:body" hx-get="/get-dead-screen" hx-target="#screen" hx-swap="outerHTML"></span>
+
+    </span>
+      
+    <title></title>
     <style>
       .github-fork-ribbon:before {
         background-color: #009933;
       }
-    </style>
-
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <title></title>
-    <style>
       body {
         padding: 0px;
         margin: 0px;
@@ -72,6 +74,31 @@
         background-size: cover;
         background-repeat: repeat-x;
       }
+      .card {
+        border-radius: 5px;
+        background: #fff;
+        box-shadow: 3px 3px 5px #29292963;
+        color: #000;
+        padding: 10px;
+      }
+      .stats {
+        position: absolute;
+        left: 50%;
+        top: 1%;
+        z-index: 1500;
+        box-sizing: border-box;
+      }
+      .instructions {
+        position: absolute;
+        left: 10%;
+        top: 50%;
+      }
+      .dead-screen {
+        position: absolute;
+        left: 50%;
+        top: 7%;
+        z-index: 1500;
+      }
     </style>
   </head>
   <body>
@@ -96,19 +123,32 @@
       class="player"
       src="/local/bird.png"
     />
-    <span
-      hx-trigger="every {{.PollRate}}"
-      hx-get="/get-screen"
-      hx-swap="innerHTML"
-    ></span>
+    <span id="screen-container">
+      <span
+        hx-trigger="every {{.PollRate}}"
+        hx-get="/get-screen"
+        hx-swap="innerHTML"
+        id="screen"
+      ></span>
+    </span>
 
     <div class="control">
-      <div
-        class="stats"
-        hx-get="/get-stats"
-        hx-trigger="every 400ms"
-        hx-swap="innerHTML"
-      ></div>
+      <label for="target-fps">Target FPS</label>
+      <input 
+      id="target-fps" 
+      type="range" 
+      max="30" 
+      min="5" 
+      step="1"
+      name="target-fps"
+      hx-include="[name='target-fps']"
+      hx-get="/new-screen"
+      hx-swap="innerHTML"
+      hx-target="#screen-container"
+      hx-trigger="change delay:200ms"
+      value="{{.TargetFPS}}"
+      ></input>
+
     </div>
   </body>
 </html>

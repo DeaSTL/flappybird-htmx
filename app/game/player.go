@@ -1,8 +1,10 @@
-package main
+package game
 
 import (
 	"log"
 	"sync"
+
+	"github.com/deastl/flappybird-htmx/game/physics"
 )
 
 type Player struct {
@@ -15,7 +17,7 @@ type Player struct {
 	Jumping  bool
 	Started  bool
 	Dead     bool
-	Collider BoundingBox
+	Collider physics.BoundingBox
 	mut      sync.Mutex
 }
 
@@ -28,7 +30,7 @@ func NewPlayer(player *Player) {
 	}
 }
 
-func (s *Player) update() {
+func (s *Player) Update() {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	if s.Started {

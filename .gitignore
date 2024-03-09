@@ -23,3 +23,6 @@ go.work
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
 infra/.*
+
+persist/
+

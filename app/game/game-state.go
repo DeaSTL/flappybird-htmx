@@ -26,8 +26,8 @@ type GameState struct {
 	Points                 int
 	BackgroundOffset       int
 	BackgroundGroundOffset int
+	ClientsConnected       int
 	ClientAlive            bool
-	ClientAliveTimer       *time.Timer
 	FrameTimer             *time.Timer
 	FPS                    int
 	TargetFPS              int
@@ -171,7 +171,7 @@ func NewGameState() *GameState {
 		Pipes:             map[string]*PipeSet{},
 		TargetFPS:         30,
 		pipe_vert_offset:  400,
-		pipe_count:        8,
+		pipe_count:        4,
 		pipe_variation:    250,
 		pipe_hor_offset:   300,
 		pipe_starting_pos: 500,

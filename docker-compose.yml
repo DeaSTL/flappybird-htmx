@@ -9,5 +9,11 @@ services:
       dockerfile: Dockerfile
     develop:
       watch:
-        - action: rebuild
+        - action: sync+restart
           path: ./app
+          target: /app
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 300M

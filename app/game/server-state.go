@@ -12,19 +12,18 @@ import (
 	"time"
 
 	"github.com/deastl/flappybird-htmx/db"
-	"github.com/deastl/flappybird-htmx/models"
-	"github.com/deastl/flappybird-htmx/services"
 	"github.com/deastl/flappybird-htmx/utils"
 	"github.com/golang-jwt/jwt"
 )
 
 type ServerState struct {
-	GameStates sync.Map
-	Templates  *template.Template
-	JWTSecret  string
-	Dbq        *db.Queries
-	Ctx        context.Context
-	Mut        sync.Mutex
+	GameStates    sync.Map
+	Templates     *template.Template
+	JWTSecret     string
+	Dbq           *db.Queries
+	Ctx           context.Context
+	Mut           sync.Mutex
+	frames_served int
 }
 
 func (s *ServerState) New() {
@@ -94,21 +93,13 @@ func (s *ServerState) NewPhysicsSession(session_id string) {
 
 			game_state := sync_out.(*GameState)
 
-			if game_state.ClientAliveTimer == nil {
-				game_state.ClientAliveTimer = time.NewTimer(1 * time.Minute)
-			}
-
-			select {
-			case <-game_state.ClientAliveTimer.C:
-				game_state.ClientAlive = false
-				s.GameStates.Delete(session_id)
+			if !game_state.ClientAlive {
 				return
-			default:
 			}
 
 			if !ok {
 				log.Print("Could not load game state in game loop")
-				os.Exit(-1)
+				return
 			}
 			game_state.Player.Update()
 			game_state.Update()
@@ -124,8 +115,7 @@ func (s *ServerState) PlayerRequestedFrame(w http.ResponseWriter, r *http.Reques
 
 	game_state, err := s.GetSessionGameState(r)
 
-	if game_state.ClientAliveTimer == nil || game_state.FrameTimer == nil {
-		game_state.ClientAliveTimer = time.NewTimer(1 * time.Minute)
+	if game_state.FrameTimer == nil {
 		game_state.FrameTimer = time.NewTimer(3 * time.Second)
 	}
 
@@ -137,23 +127,24 @@ func (s *ServerState) PlayerRequestedFrame(w http.ResponseWriter, r *http.Reques
 	default:
 		game_state.FrameCount++
 	}
-	game_state.TotalFrameCount++
 
-	game_state.ClientAliveTimer.Reset(1 * time.Minute)
+	game_state.TotalFrameCount++
 
 	if game_state.Player.Dead && game_state.DeadScreenTimer == nil {
 		game_state.DeadScreenTimer = time.NewTimer(10 * time.Second)
 	}
 
-	select {
-	case <-game_state.FrameTimer.C:
-		w.Header().Set("Hx-Trigger", "get-dead-screen")
-	default:
+	if game_state.DeadScreenTimer != nil {
+		select {
+		case <-game_state.DeadScreenTimer.C:
+			w.Header().Set("Hx-Trigger", "get-dead-screen")
+			game_state.ClientAlive = false
+		default:
+		}
 	}
 
 	if err != nil {
-		log.Printf("Error in get-screen: %v", err)
-		return err
+		return errors.New("Error in get-screen: " + err.Error())
 	}
 
 	game_state.Mut.Lock()
@@ -161,8 +152,7 @@ func (s *ServerState) PlayerRequestedFrame(w http.ResponseWriter, r *http.Reques
 	game_state.Mut.Unlock()
 
 	if err != nil {
-		log.Printf("Could not render index template: %+v", err)
-		return err
+		return errors.New("Could not render index template: " + err.Error())
 	}
 	return nil
 }
@@ -184,46 +174,33 @@ func (s *ServerState) PlayerJumped(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-func (s *ServerState) PlayerEntered(w http.ResponseWriter, r *http.Request) error {
+func (s *ServerState) InitializePlayerSession(w http.ResponseWriter, r *http.Request) (string, error) {
+
 	temp_session := &http.Cookie{
 		Name:  "session",
 		Value: utils.GenID(32),
 	}
 
-	perm_session, err := r.Cookie("perm_jwt")
-
-	if perm_session == nil || perm_session.Value == "" {
-		err = nil
-		new_user := models.User{
-			Name: "",
-		}
-		err = services.UserCreate(s.Ctx, s.Dbq, &new_user)
-
-		if err != nil {
-			log.Printf("Error creating user %s : %v", new_user.ID, err)
-		}
-		perm_token, err := s.GeneratePermJWT(new_user.ID)
-
-		if err != nil {
-			log.Printf("Error generating JWT token %s : %v", new_user.ID, err)
-		}
-
-		perm_session = &http.Cookie{
-			Name:  "perm_jwt",
-			Value: perm_token,
-		}
-		http.SetCookie(w, perm_session)
-	}
+	log.Printf("New user from: %s", temp_session.Value)
 
 	http.SetCookie(w, temp_session)
 
-	log.Printf("New user from: %s", temp_session.Value)
+	return temp_session.Value, nil
+}
+
+func (s *ServerState) PlayerEntered(w http.ResponseWriter, r *http.Request) error {
+
+	temp_session_id, err := s.InitializePlayerSession(w, r)
+
+	if err != nil {
+		return errors.New("Could not initalize user session")
+	}
 
 	new_game_state := NewGameState()
 
-	s.GameStates.Store(temp_session.Value, new_game_state)
+	s.GameStates.Store(temp_session_id, new_game_state)
 
-	s.NewPhysicsSession(temp_session.Value)
+	s.NewPhysicsSession(temp_session_id)
 
 	err = s.Templates.ExecuteTemplate(w, "templates/index.tmpl.html", new_game_state)
 	if err != nil {
@@ -306,8 +283,6 @@ func (s *ServerState) GeneratePermJWT(user_id string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	log.Printf("Token: %v", token)
 
 	token_string, err := token.SignedString(s.JWTSecret)
 

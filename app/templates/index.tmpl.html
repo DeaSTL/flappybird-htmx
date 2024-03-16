@@ -46,33 +46,37 @@
       }
 
       .control {
-        position: sticky;
+        position: absolute;
         z-index: 1000;
         bottom: 0;
         height: 20vh;
-        background: white;
       }
-
+      .background-container {
+        width:100%;
+        min-height: 100%;
+        height:100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        position: absolute;
+        bottom: 0px;
+      }
       .background {
-        position: relative;
-        z-index: -1;
-        //bottom: 75vh;
-        height: 90vh;
-        width: 200%;
+        width:100%;
         background-image: url("/local/background.png");
         background-size: contain;
         background-repeat: repeat-x;
-        background-position-y: -375px;
+        height: 90vh;
+        z-index: -1;
+        position: absolute;
       }
       .background-ground {
-        position: relative;
-        z-index: 1;
-        bottom: 18vh;
-        height: 10vh;
-        width: 100%;
+        width:100%;
         background-image: url("/local/background-ground.png");
         background-size: cover;
         background-repeat: repeat-x;
+        bottom:0;
+        height: 10vh;
+        position: absolute;
       }
       .card {
         border-radius: 5px;
@@ -96,13 +100,16 @@
       .dead-screen {
         position: absolute;
         left: 50%;
-        top: 7%;
+        top: 12%;
         z-index: 1500;
       }
     </style>
   </head>
   <body>
     {{ range .Pipes }}
+      
+      
+      
 
     <div class="seg-image seg_{{.ID}}_top"></div>
     <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
@@ -113,9 +120,11 @@
     <div class="bbox-top-{{.ID}}"></div>
     <div class="bbox-point-{{.ID}}"></div>
     {{end}} {{end}}
-
-    <div class="background background-offset"></div>
-    <div class="background-ground background-ground-offset"></div>
+    <div class="background-container">
+      <header class="background background-offset"></header>
+      <main></main>
+      <footer class="background-ground background-ground-offset"></footer>
+    </div>
 
     <img
       hx-trigger="keypress[key=='j'] from:body"
@@ -140,9 +149,9 @@
       max="30" 
       min="5" 
       step="1"
-      name="target-fps"
-      hx-include="[name='target-fps']"
-      hx-get="/new-screen"
+      name="value"
+      hx-include="[name='value']"
+      hx-post="/update-fps"
       hx-swap="innerHTML"
       hx-target="#screen-container"
       hx-trigger="change delay:200ms"

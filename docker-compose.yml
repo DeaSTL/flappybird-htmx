@@ -1,12 +1,18 @@
-version: "3"
-
 services:
   game:
-    image: jhartway99/htmx-flappybird:latest
-    network_mode: "host"
+    image: yeahscience/htmx-flappybird:latest
+    ports:
+      - 3200:3200
     build:
       context: ./
       dockerfile: Dockerfile
+    platform: "linux/amd64"
+
+    volumes:
+      - ./data:/data
+    environment:
+      - ENVIRONMENT=production
+    tty: true
     develop:
       watch:
         - action: sync+restart
@@ -15,5 +21,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '4'
           memory: 300M
+

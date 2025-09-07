@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/deastl/flappybird-htmx/db"
+	"github.com/deastl/flappybird-htmx/metrics"
 	"github.com/deastl/flappybird-htmx/utils"
 	"github.com/golang-jwt/jwt"
 )
@@ -24,10 +26,18 @@ type ServerState struct {
 	Ctx           context.Context
 	Mut           sync.Mutex
 	frames_served int
+	last_sample_frames int // Track frames since last sample
 }
 
 func (s *ServerState) New() {
-	s.Templates = template.New("")
+	s.Templates = template.New("").Funcs(template.FuncMap{
+		"add": func(i, j int) int {
+			return i + j
+		},
+		"eq": func(a, b interface{}) bool {
+			return a == b
+		},
+	})
 	default_secret := "this_is_a_fake_secret"
 	env_secret := os.Getenv("jwt_secret")
 
@@ -46,11 +56,14 @@ func (s *ServerState) initTempaltes() {
 	x := []string{
 		"templates/bounding-box.tmpl.css",
 		"templates/index.tmpl.html",
+		"templates/game-wrapper.tmpl.html",
 		"templates/pipe.tmpl.css",
 		"templates/player.tmpl.css",
 		"templates/screen.tmpl.html",
 		"templates/screen-frame.tmpl.html",
 		"templates/stats.tmpl.html",
+		"templates/ui-overlay.tmpl.html",
+		"templates/leaderboard.tmpl.html",
 	}
 	for _, f := range x {
 		fileContents, err := os.ReadFile(f)
@@ -66,23 +79,52 @@ func (s *ServerState) initTempaltes() {
 }
 
 func (s *ServerState) LogInfo() {
-	log.Println("---------------------------------")
-	log.Println("       Connected Clients         ")
+	var activePlayerCount float64
+	var connectedSessionCount float64
+	var totalFPS float64
+	var activeSessions int
+
 	s.GameStates.Range(func(key any, value any) bool {
 		id := key.(string)
 		game_state := value.(*GameState)
+		
+		connectedSessionCount++
+		
+		playerAlive := !game_state.Player.Dead
+		
 
-		log.Printf(
-			"ID: %s Score: %v PlayerAlive: %t FPS: %d TargetFPS: %d PollRate: %s\n",
-			id,
-			game_state.Points,
-			!game_state.Player.Dead,
-			game_state.FPS,
-			game_state.TargetFPS,
-			game_state.PollRate,
-		)
+		// Update per-session metrics
+		metrics.SessionScore.WithLabelValues(id).Set(float64(game_state.Points))
+		metrics.SessionTargetFPS.WithLabelValues(id).Set(float64(game_state.TargetFPS))
+		
+		if playerAlive {
+			activePlayerCount++
+			activeSessions++
+			totalFPS += float64(game_state.FPS)
+			metrics.SessionFPS.WithLabelValues(id).Set(float64(game_state.FPS))
+		} else {
+			// Clean up FPS metric for dead players but keep score/target FPS
+			metrics.SessionFPS.DeleteLabelValues(id)
+		}
+		
 		return true
 	})
+
+	// Update aggregate metrics
+	metrics.ActivePlayers.Set(activePlayerCount)
+	metrics.ConnectedSessions.Set(connectedSessionCount)
+	
+	// Update average FPS
+	if activeSessions > 0 {
+		metrics.AverageFPS.Set(totalFPS / float64(activeSessions))
+	} else {
+		metrics.AverageFPS.Set(0)
+	}
+
+	// Update frame metrics
+	framesSinceLastSample := s.frames_served - s.last_sample_frames
+	metrics.FramesServedLastSample.Set(float64(framesSinceLastSample))
+	s.last_sample_frames = s.frames_served
 }
 
 func (s *ServerState) NewPhysicsSession(session_id string) {
@@ -113,6 +155,10 @@ func (s *ServerState) NewPhysicsSession(session_id string) {
 func (s *ServerState) PlayerRequestedFrame(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Content-Type", "text/html")
 
+	// Increment frame counter and metrics
+	s.frames_served++
+	metrics.TotalFramesServed.Inc()
+
 	game_state, err := s.GetSessionGameState(r)
 
 	if game_state.FrameTimer == nil {
@@ -132,6 +178,12 @@ func (s *ServerState) PlayerRequestedFrame(w http.ResponseWriter, r *http.Reques
 
 	if game_state.Player.Dead && game_state.DeadScreenTimer == nil {
 		game_state.DeadScreenTimer = time.NewTimer(10 * time.Second)
+		
+		// Save score to database when player first dies
+		if !game_state.ScoreSaved {
+			s.savePlayerScore(r, game_state)
+			game_state.ScoreSaved = true
+		}
 	}
 
 	if game_state.DeadScreenTimer != nil {
@@ -164,10 +216,18 @@ func (s *ServerState) PlayerJumped(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
+	// Check if this is the first jump
+	firstJump := !game_state.Player.Started
+
 	game_state.Player.Started = true
 	game_state.Player.Jumping = true
 
 	s.SetSessionGameState(r, game_state)
+
+	// If this is the first jump, trigger polling to start
+	if firstJump {
+		w.Header().Set("HX-Trigger", "start-polling")
+	}
 
 	w.WriteHeader(200)
 
@@ -291,4 +351,56 @@ func (s *ServerState) GeneratePermJWT(user_id string) (string, error) {
 	}
 
 	return token_string, nil
+}
+
+func (s *ServerState) savePlayerScore(r *http.Request, game_state *GameState) {
+	// Get username from cookie
+	usernameCookie, err := r.Cookie("username")
+	if err != nil {
+		log.Printf("No username cookie found when saving score: %v", err)
+		return
+	}
+	
+	username := usernameCookie.Value
+	score := int64(game_state.Points)
+	now := time.Now().Format(time.RFC3339)
+	
+	// Try to get existing user
+	existingUser, err := s.Dbq.GetUserByName(s.Ctx, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Create new user
+			userId := utils.GenID(16)
+			err = s.Dbq.CreateUser(s.Ctx, db.CreateUserParams{
+				ID:        userId,
+				Name:      username,
+				CreatedAt: now,
+				UpdatedAt: now,
+				LastScore: score,
+				TopScore:  score,
+			})
+			if err != nil {
+				log.Printf("Error creating new user: %v", err)
+			}
+		} else {
+			log.Printf("Error getting user by name: %v", err)
+		}
+		return
+	}
+	
+	// Update existing user
+	newTopScore := existingUser.TopScore
+	if score > existingUser.TopScore {
+		newTopScore = score
+	}
+	
+	err = s.Dbq.UpdateUserScore(s.Ctx, db.UpdateUserScoreParams{
+		LastScore: score,
+		TopScore:  newTopScore,
+		UpdatedAt: now,
+		Name:      username,
+	})
+	if err != nil {
+		log.Printf("Error updating user score: %v", err)
+	}
 }

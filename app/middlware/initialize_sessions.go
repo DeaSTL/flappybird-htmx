@@ -40,3 +40,4 @@ func InitializeUserSession(server_state *game.ServerState) func(http.Handler) ht
 		})
 	}
 }
+

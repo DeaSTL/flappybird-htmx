@@ -1,0 +1,28 @@
+# Development Dockerfile with optimizations
+FROM golang:1.24-alpine
+
+# Install build dependencies and air for hot reload
+RUN apk --no-cache add gcc musl-dev sqlite && \
+    go install github.com/air-verse/air@latest
+
+WORKDIR /app
+
+# Copy go mod files first for better caching
+COPY ./app/go.mod ./app/go.sum ./
+
+# Download dependencies with cache mount
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+# Copy source code
+COPY ./app .
+
+# Build with cache mounts for faster rebuilds
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -o flappybird .
+
+EXPOSE 3200
+
+# Use air for hot reload in development
+CMD ["air", "-c", ".air.toml"]

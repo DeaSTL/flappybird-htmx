@@ -34,6 +34,7 @@ type GameState struct {
 	FrameCount             int         // Amount of frames requested in current sampling block
 	TotalFrameCount        int         // Total amount of frames requested since beginning of connection
 	DeadScreenTimer        *time.Timer // Time that is set to trigger the dead screen once it expires
+	ScoreSaved             bool        // Track if score has been saved to database
 	pipe_hor_offset        int
 	pipe_vert_offset       int
 	pipe_starting_pos      int
@@ -147,8 +148,9 @@ func (s *GameState) Update() {
 		}
 	}
 
-	if s.isColliding() {
+	if s.isColliding() && !s.Player.Dead {
 		s.Player.Dead = true
+		// Score will be saved by the server when it detects player death
 	}
 }
 
@@ -162,7 +164,7 @@ func NewGameState() *GameState {
 	game_state := GameState{
 		Player: Player{
 			Y:      300,
-			X:      200,
+			X:      150,
 			Width:  50,
 			Height: 32,
 		},

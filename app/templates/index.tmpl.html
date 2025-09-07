@@ -1,17 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css"
-    />
-    <a
-      class="github-fork-ribbon"
-      href="https://github.com/DeaSTL/flappybird-htmx"
-      data-ribbon="Star This on Github"
-      title="Star This on Github"
-      >Star This on Github</a
-    >
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -21,15 +10,12 @@
 
     </span>
       
-    <title></title>
+    <title>Flappy Bird Game</title>
     <style>
-      .github-fork-ribbon:before {
-        background-color: #009933;
-      }
       body {
         padding: 0px;
         margin: 0px;
-        font-family: "Brush Script MT", cursive;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
       }
       .pipe {
         position: absolute;
@@ -48,8 +34,65 @@
       .control {
         position: absolute;
         z-index: 1000;
-        bottom: 0;
-        height: 20vh;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, rgba(52,73,94,0.95) 0%, rgba(44,62,80,0.95) 100%);
+        backdrop-filter: blur(10px);
+        border-radius: 25px;
+        padding: 15px 30px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      
+      .control label {
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        white-space: nowrap;
+      }
+      
+      .control input[type="range"] {
+        width: 150px;
+        height: 6px;
+        background: rgba(255,255,255,0.3);
+        border-radius: 3px;
+        outline: none;
+        -webkit-appearance: none;
+      }
+      
+      .control input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #3498db;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: background 0.3s;
+      }
+      
+      .control input[type="range"]::-webkit-slider-thumb:hover {
+        background: #2980b9;
+      }
+      
+      .control input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: #3498db;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        border: none;
+        transition: background 0.3s;
+      }
+      
+      .control input[type="range"]::-moz-range-thumb:hover {
+        background: #2980b9;
       }
       .background-container {
         width:100%;
@@ -61,7 +104,7 @@
         bottom: 0px;
       }
       .background {
-        width:100%;
+        width:103%;
         background-image: url("/local/background.png");
         background-size: contain;
         background-repeat: repeat-x;
@@ -79,85 +122,341 @@
         position: absolute;
       }
       .card {
-        border-radius: 5px;
-        background: #fff;
-        box-shadow: 3px 3px 5px #29292963;
-        color: #000;
-        padding: 10px;
+        border-radius: 15px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.85) 100%);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        border: 2px solid rgba(255,255,255,0.8);
+        color: #2c3e50;
+        padding: 15px 20px;
+      }
+      
+      .card.initial-load {
+        animation: fadeIn 0.3s ease-in;
+      }
+      
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       .stats {
-        position: absolute;
+        position: fixed;
         left: 50%;
-        top: 1%;
-        z-index: 1500;
+        transform: translateX(-50%);
+        top: 20px;
+        z-index: 2100;
         box-sizing: border-box;
+        min-width: 200px;
+        text-align: center;
+      }
+      
+      .stats h2 {
+        margin: 5px 0;
+        font-size: 18px;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+      }
+      
+      .stats h2:first-child {
+        font-size: 24px;
+        color: #27ae60;
       }
       .instructions {
-        position: absolute;
-        left: 10%;
+        position: fixed;
+        left: 50%;
         top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        min-width: 300px;
+        z-index: 2100;
+      }
+      
+      .instructions h1 {
+        color: #2c3e50;
+        font-size: 32px;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      .instructions p {
+        font-size: 18px;
+        margin: 10px 0;
+        color: #34495e;
+      }
+      
+      .instructions strong {
+        color: #e74c3c;
+        font-size: 16px;
+        display: block;
+        margin-top: 15px;
       }
       .dead-screen {
-        position: absolute;
+        position: fixed;
         left: 50%;
-        top: 12%;
-        z-index: 1500;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2100;
+        text-align: center;
+        min-width: 280px;
+        background: linear-gradient(135deg, rgba(231,76,60,0.95) 0%, rgba(192,57,43,0.95) 100%);
+        color: white;
       }
+      
+      .dead-screen h1 {
+        font-size: 36px;
+        margin: 10px 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      }
+      
+      .try-again-btn {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        font-size: 18px;
+        font-weight: 600;
+        border-radius: 25px;
+        cursor: pointer;
+        margin-top: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      
+      .try-again-btn:hover {
+        background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      }
+      
+      .try-again-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      }
+      
+      .name-input {
+        padding: 10px 15px;
+        font-size: 16px;
+        border: 2px solid #3498db;
+        border-radius: 8px;
+        margin: 10px 5px;
+        width: 200px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+      
+      .name-input:focus {
+        border-color: #2980b9;
+        box-shadow: 0 0 5px rgba(52,152,219,0.3);
+      }
+      
+      .save-name-btn {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      .save-name-btn:hover {
+        background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      }
+      
+      .guest-name-btn {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      .guest-name-btn:hover {
+        background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      }
+      
+      .change-name-link {
+        background: none;
+        border: 2px solid #3498db;
+        color: #3498db;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      .change-name-link:hover {
+        background: #3498db;
+        color: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      
+      .ui-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 2000;
+      }
+      
+      .ui-overlay > * {
+        pointer-events: auto;
+      }
+      
+      .game-layer {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+      }
+      
     </style>
   </head>
   <body>
-    {{ range .Pipes }}
+    <!-- Game Layer - Updates frequently -->
+    <div class="game-layer">
+      {{ range .Pipes }}
+      <div class="seg-image seg_{{.ID}}_top"></div>
+      <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
+      <img class="pipe {{.ID}}_bottom" src="/local/pipe-top.png" />
+      <div class="seg-image seg_{{.ID}}_bottom"></div>
+      {{ if $.DebugMode }}
+      <div class="bbox-bottom-{{.ID}}"></div>
+      <div class="bbox-top-{{.ID}}"></div>
+      <div class="bbox-point-{{.ID}}"></div>
+      {{end}} {{end}}
       
-      
-      
+      <div class="background-container">
+        <header class="background background-offset"></header>
+        <main></main>
+        <footer class="background-ground background-ground-offset"></footer>
+      </div>
 
-    <div class="seg-image seg_{{.ID}}_top"></div>
-    <img class="pipe {{.ID}}_top" src="/local/pipe-top.png" />
-    <img class="pipe {{.ID}}_bottom" src="/local/pipe-top.png" />
-    <div class="seg-image seg_{{.ID}}_bottom"></div>
-    {{ if $.DebugMode }}
-    <div class="bbox-bottom-{{.ID}}"></div>
-    <div class="bbox-top-{{.ID}}"></div>
-    <div class="bbox-point-{{.ID}}"></div>
-    {{end}} {{end}}
-    <div class="background-container">
-      <header class="background background-offset"></header>
-      <main></main>
-      <footer class="background-ground background-ground-offset"></footer>
+      <img
+        hx-trigger="keypress[key==' '] from:body"
+        hx-put="/jump-player"
+        class="player"
+        src="/local/bird.png"
+      />
+      
+      <!-- High frequency game updates -->
+      <span id="screen-container">
+        <span
+          hx-trigger="load"
+          hx-get="/get-screen"
+          hx-swap="innerHTML"
+          id="screen"
+        ></span>
+      </span>
     </div>
-
-    <img
-      hx-trigger="keypress[key=='j'] from:body"
-      hx-put="/jump-player"
-      class="player"
-      src="/local/bird.png"
-    />
-    <span id="screen-container">
-      <span
-        hx-trigger="every {{.PollRate}}"
-        hx-get="/get-screen"
-        hx-swap="innerHTML"
-        id="screen"
-      ></span>
-    </span>
-
-    <div class="control">
-      <label for="target-fps">Target FPS</label>
-      <input 
-      id="target-fps" 
-      type="range" 
-      max="30" 
-      min="5" 
-      step="1"
-      name="value"
-      hx-include="[name='value']"
-      hx-post="/update-fps"
-      hx-swap="innerHTML"
-      hx-target="#screen-container"
-      hx-trigger="change delay:200ms"
-      value="{{.TargetFPS}}"
-      ></input>
-
+    
+    <!-- UI Overlay Layer - Updates less frequently -->
+    <div class="ui-overlay" id="ui-overlay">
+      <div class="card stats">
+        <div id="stats">
+          <h2 id="score">Score: {{.Points}}</h2>
+          <h2 id="fps">FPS: {{.FPS}}</h2>
+        </div>
+      </div>
+      
+      <div id="ui-content" 
+           hx-trigger="load"
+           hx-get="/get-ui-overlay"
+           hx-swap="innerHTML">
+        <!-- UI elements like instructions, game over, etc. will be here -->
+      </div>
     </div>
+    
+    <!-- Polling container - populated by server after username is set -->
+    <div id="polling-container">
+      <!-- Will be populated by /set-username endpoint -->
+    </div>
+    
+    <!-- Polling section - populated after first jump -->
+    <div id="polling-section">
+      <!-- Will be populated by /start-polling endpoint -->
+    </div>
+    
+    <!-- Trigger to start polling on first jump -->
+    <div hx-trigger="start-polling from:body"
+         hx-get="/start-polling"
+         hx-target="#polling-section"
+         hx-swap="innerHTML"
+         style="display: none;"></div>
+    
+    <!-- Trigger to stop screen and UI polling when player dies -->
+    <div hx-trigger="stop-screen-polling from:body"
+         hx-get="/stop-screen-polling"
+         hx-target="#polling-section"
+         hx-swap="innerHTML"
+         style="display: none;"></div>
+    
+    
+    <script>
+      // Cookie-based name management
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+      }
+      
+      function initializeUser() {
+        const username = getCookie('username');
+        const nameDisplay = document.getElementById('player-name-display');
+        const nameGameover = document.getElementById('player-name-gameover');
+        const nameInputSection = document.getElementById('name-input-section');
+        const gameInstructions = document.getElementById('game-instructions');
+        
+        if (username) {
+          // User has username cookie - show game instructions
+          if (nameDisplay) nameDisplay.textContent = username;
+          if (nameGameover) nameGameover.textContent = username;
+          if (nameInputSection) nameInputSection.style.display = 'none';
+          if (gameInstructions) gameInstructions.style.display = 'block';
+          
+          // Set up polling container but don't start polling until first jump
+          htmx.ajax('POST', '/set-username', {
+            target: '#polling-container',
+            swap: 'innerHTML'
+          });
+        } else {
+          // No username cookie - show name input
+          if (nameInputSection) nameInputSection.style.display = 'block';
+          if (gameInstructions) gameInstructions.style.display = 'none';
+        }
+      }
+      
+      
+      
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', initializeUser);
+      
+      // Update displays when UI content changes
+      document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'ui-content') {
+          const username = getCookie('username');
+          if (username) {
+            const displays = document.querySelectorAll('#player-name-display, #player-name-gameover');
+            displays.forEach(el => el.textContent = username);
+          }
+        }
+      });
+    </script>
   </body>
 </html>

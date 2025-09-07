@@ -1,0 +1,59 @@
+{{ if not .Player.Started }}
+<div class="card instructions" id="instructions-card">
+  <h1>Welcome, <span id="player-name-display">Player</span>!</h1>
+  <div id="name-input-section" style="display: none;">
+    <p style="margin-bottom: 15px;">Choose your name:</p>
+    <form id="name-form" style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
+      <input type="text" id="player-name-input" name="username" class="name-input" placeholder="Enter name" maxlength="20">
+      <button type="submit" 
+              hx-post="/set-username"
+              hx-include="#name-form"
+              hx-target="#polling-container"
+              hx-swap="innerHTML"
+              class="save-name-btn">Save</button>
+    </form>
+    <div style="margin-top: 15px;">
+      <button hx-post="/set-username"
+              hx-target="#polling-container"
+              hx-swap="innerHTML"
+              class="guest-name-btn">Play as Guest</button>
+    </div>
+  </div>
+  <div id="game-instructions">
+    <p>Press Space to start and to jump</p>
+    <button hx-get="/get-name-input" 
+            hx-target="#instructions-card" 
+            hx-swap="innerHTML"
+            class="change-name-link" style="margin-top: 10px;">Change Name</button>
+  </div>
+</div>
+{{ else }}
+<div id="instructions-card"></div>
+{{ end }} 
+
+{{ if .Player.Dead }}
+<div class="card dead-screen" id="dead-screen-card">
+  <h1>Game Over!</h1>
+  <p style="font-size: 18px; margin: 10px 0;"><span id="player-name-gameover">Player</span></p>
+  <p style="font-size: 24px; margin: 15px 0; font-weight: bold;">Score: {{.Points}}</p>
+  <button 
+    class="try-again-btn"
+    hx-post="/restart-game"
+    hx-target="body"
+    hx-swap="innerHTML"
+  >Try Again</button>
+  <div hx-trigger="load once"
+       hx-get="/trigger-stop-polling"
+       style="display: none;"></div>
+  <script>
+    // Notify parent window to refresh leaderboard when game over screen loads
+    setTimeout(function() {
+      if (window.parent !== window) {
+        window.parent.postMessage('refresh-leaderboard', '*');
+      }
+    }, 500);
+  </script>
+</div>
+{{ else }}
+<div id="dead-screen-card"></div>
+{{ end}}

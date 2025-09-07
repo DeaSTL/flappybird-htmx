@@ -1,0 +1,24 @@
+services:
+  game:
+    image: flappybird-dev:latest
+    ports:
+      - 3200:3200
+    build:
+      context: ./
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./app:/app
+      - ./data:/data
+      - go-modules:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    environment:
+      - CGO_ENABLED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 500M
+
+volumes:
+  go-modules:
+  go-build-cache:

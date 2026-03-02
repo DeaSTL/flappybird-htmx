@@ -6,7 +6,7 @@ services:
     environment:
       ENVIRONMENT: production
     volumes:
-      - /opt/htmx-flappybird/data:/data
+      - /opt/apps/htmx-flappybird/data:/data
     networks:
       - gateway_default
     labels:

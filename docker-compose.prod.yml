@@ -1,0 +1,21 @@
+services:
+  htmx-flappybird:
+    image: yeahscience/htmx-flappybird:latest
+    container_name: htmx-flappybird
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+    volumes:
+      - /opt/htmx-flappybird/data:/data
+    networks:
+      - gateway_default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.htmx-flappybird.rule=Host(`htmx-flappybird.deastl.com`)"
+      - "traefik.http.routers.htmx-flappybird.tls=true"
+      - "traefik.http.routers.htmx-flappybird.tls.certresolver=letsencrypt"
+      - "traefik.http.services.htmx-flappybird.loadbalancer.server.port=3200"
+
+networks:
+  gateway_default:
+    external: true
